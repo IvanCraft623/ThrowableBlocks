@@ -1,0 +1,12 @@
+---
+name: ThrowableBlocks
+author: IvanCraft623
+main: IvanCraft623\ThrowableBlocks\ThrowableBlocks
+version: 0.0.1
+api: 4.0.0
+description: "Throw blocks like snowballs to place them!"
+permissions:
+  throwableblocks.command:
+    default: op
+    description: "Enable or Disable ThrowableBlocks"
+...
