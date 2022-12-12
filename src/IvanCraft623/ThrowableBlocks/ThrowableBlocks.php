@@ -21,6 +21,7 @@ use pocketmine\world\World;
 
 use pocketmine\event\Listener;
 use pocketmine\event\entity\ProjectileLaunchEvent;
+use pocketmine\event\block\BlockPlaceEvent;
 use pocketmine\event\player\PlayerItemUseEvent;
 
 class ThrowableBlocks extends PluginBase  implements Listener {
@@ -31,6 +32,12 @@ class ThrowableBlocks extends PluginBase  implements Listener {
 	private ?Config $config = null;
 
 	private bool $throwableBlocks = true;
+
+	/*
+	 * playerId => itemId
+	 * @var array<int, int>
+	 */
+	private array $ignorePlayers = [];
 
 	public function onLoad(): void {
 		self::setInstance($this);
@@ -79,20 +86,17 @@ class ThrowableBlocks extends PluginBase  implements Listener {
 
 	# Listerner
 
-	/**
-	 * @priority MONITOR
-	 */
-	public function onItemUse(PlayerItemUseEvent $event): void {
-		$player = $event->getPlayer();
-		if ($this->throwableBlocks && !$player->isSpectator()) {
-			$item = clone $event->getItem();
-			$item->setCount(1);
-			if ($item->canBePlaced()) {
-
+	public function onClickAir(PlayerItemUseEvent $event): void {
+		if ($this->throwableBlocks) {
+			$item = $event->getItem();
+			if (isset($this->ignorePlayers[$player->getId()]) && $this->ignorePlayers[$player->getId()] === $item->getId()) {
+				unset($this->ignorePlayers[$player->getId()]);
+			} elseif (!$player->isSpectator() && !$item->isNull() && $item->canBePlaced()) {
+				$throwItem = $item->pop();
 				$location = $player->getLocation();
-				$directionVector = $player->getDirectionVector();
+				$directionVector = $event->getDirectionVector();
 
-				$projectile = new ThrownBlock(Location::fromObject($player->getEyePos(), $player->getWorld(), $location->yaw, $location->pitch), $player, $item);
+				$projectile = new ThrownBlock(Location::fromObject($player->getEyePos(), $player->getWorld(), $location->yaw, $location->pitch), $player, $throwItem);
 				$projectile->setMotion($directionVector->multiply(1.5));
 
 				$projectileEv = new ProjectileLaunchEvent($projectile);
@@ -103,9 +107,17 @@ class ThrowableBlocks extends PluginBase  implements Listener {
 				}
 				$projectile->spawnToAll();
 				if ($player->hasFiniteResources()) {
-					$event->getItem()->pop();
+					$player->getInventory()->setItemInHand($item);
 				}
 			}
 		}
+	}
+
+	/**
+	 * @priority MONITOR
+	 * @ignoreCancelled
+	 */
+	public function onBlockPlace(BlockPlaceEvent $event): void {
+		$this->ignorePlayers[$event->getPlayer()->getId()] = $event->getItem()->getId();
 	}
 }
